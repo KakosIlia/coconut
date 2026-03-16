@@ -1,0 +1,2 @@
+--your code here
+--[[local a = display.rect(0,0,100,100)]]
