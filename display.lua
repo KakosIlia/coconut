@@ -1,14 +1,14 @@
--- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
+-- Copyright (c) 2024 IliaKakos2000. Licensed under the MIT License.
 local m = {}
 m.bgColor = { 0, 0, 0 }
 
 local OBJECT = {}
-local illegal = { x = true , y = true, angle = true}
+local illegal = { x = true , y = true}
 OBJECT.__index = OBJECT
 
 OBJECT.__newindex = function(t, k, v)
 	if illegal[k] then
-		print("Не меняйте значения напрямую, исползуйте API проекта. Это связано с разными системами координат физики и графики.")
+		print("ILLEGAL")
 	else
 		rawset(t, k, v)
 	end
@@ -34,14 +34,18 @@ function OBJECT:remove()
 	sceneManager.currentScene.data[self.id] = nil
 end
 
-function OBJECT:setPhysBody(type)
-	self.physBody = love.physics.newBody(sceneManager.currentScene.physWorld, self._proxy.x, -self._proxy.y, type)
-	if self.type == "rect" or self.type == "image" then
+function OBJECT:addFixture()
+		if self.type == "rect" or self.type == "image" then
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
 	elseif self.type == 'circle' then
 		self.physShape = love.physics.newCircleShape(self._proxy.radius)
 	end
 	self.fixture = love.physics.newFixture(self.physBody, self.physShape)
+end
+
+function OBJECT:setPhysBody(type)
+	self.physBody = love.physics.newBody(sceneManager.currentScene.physWorld, self._proxy.x, -self._proxy.y, type)
+	self:addFixture()
 	self.physBody:setAngle(math.rad(self._proxy.angle or 0))
 end
 
@@ -73,20 +77,26 @@ end
 function OBJECT:setSize(w, h)
 	self._proxy.width = w
 	self._proxy.height = h
+	if self.physBody then
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setWidth(w)
 	self._proxy.width = w
-if self.physBody then
-self.physBody:setWidth(w)
-end
+	if self.physBody then 
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setHeight(h)
 	self._proxy.height = h
-if self.physBody then
-self.physBody:setHeight(w)
-end
+	if self.physBody then
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setAngle(angle)
@@ -134,10 +144,26 @@ function OBJECT:setStroke(width, color)
 end
 
 function OBJECT:setColor(...)
-	local t = ...
-	if type(t) == "table" and #t == 3 then
-		t[4] = self.color[4]
-		self.color = t
+	local t = {...}
+	if #t == 1 then
+		self.color = t[1]
+	end
+	if #t >= 3 then
+		self.color = {t[1]/255,t[2]/255,t[3]/255}
+	end
+	if #t == 1 and type(t[1]) == 'string' then
+		t[1] = t[1]:gsub("#", "")
+
+		local r = tonumber(t[1]:sub(1, 2), 16) / 255
+		local g = tonumber(t[1]:sub(3, 4), 16) / 255
+		local b = tonumber(t[1]:sub(5, 6), 16) / 255
+		
+		local alpha = 1
+		if #t[1] >= 8 then
+			alpha = tonumber(t[1]:sub(7, string.len(t[1])), 16) / 255
+		end
+		
+		self.color = {r,g,b,alpha or 1}
 	end
 end
 
