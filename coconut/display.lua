@@ -3,7 +3,7 @@ local m = {}
 m.bgColor = { 0, 0, 0 }
 
 local OBJECT = {}
-local illegal = { x = true }
+local illegal = { x = true , y = true}
 OBJECT.__index = OBJECT
 
 OBJECT.__newindex = function(t, k, v)
@@ -34,14 +34,18 @@ function OBJECT:remove()
 	sceneManager.currentScene.data[self.id] = nil
 end
 
-function OBJECT:setPhysBody(type)
-	self.physBody = love.physics.newBody(sceneManager.currentScene.physWorld, self._proxy.x, -self._proxy.y, type)
-	if self.type == "rect" or self.type == "image" then
+function OBJECT:addFixture()
+		if self.type == "rect" or self.type == "image" then
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
 	elseif self.type == 'circle' then
 		self.physShape = love.physics.newCircleShape(self._proxy.radius)
 	end
 	self.fixture = love.physics.newFixture(self.physBody, self.physShape)
+end
+
+function OBJECT:setPhysBody(type)
+	self.physBody = love.physics.newBody(sceneManager.currentScene.physWorld, self._proxy.x, -self._proxy.y, type)
+	self:addFixture()
 	self.physBody:setAngle(math.rad(self._proxy.angle or 0))
 end
 
@@ -73,14 +77,26 @@ end
 function OBJECT:setSize(w, h)
 	self._proxy.width = w
 	self._proxy.height = h
+	if self.physBody then
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setWidth(w)
 	self._proxy.width = w
+	if self.physBody then 
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setHeight(h)
 	self._proxy.height = h
+	if self.physBody then
+		self.fixture:destroy()
+		self:addFixture()
+	end
 end
 
 function OBJECT:setAngle(angle)
@@ -128,10 +144,26 @@ function OBJECT:setStroke(width, color)
 end
 
 function OBJECT:setColor(...)
-	local t = ...
-	if type(t) == "table" and #t == 3 then
-		t[4] = self.color[4]
-		self.color = t
+	local t = {...}
+	if #t == 1 then
+		self.color = t[1]
+	end
+	if #t >= 3 then
+		self.color = {t[1]/255,t[2]/255,t[3]/255}
+	end
+	if #t == 1 and type(t[1]) == 'string' then
+		t[1] = t[1]:gsub("#", "")
+
+		local r = tonumber(t[1]:sub(1, 2), 16) / 255
+		local g = tonumber(t[1]:sub(3, 4), 16) / 255
+		local b = tonumber(t[1]:sub(5, 6), 16) / 255
+		
+		local alpha = 1
+		if #t[1] >= 8 then
+			alpha = tonumber(t[1]:sub(7, string.len(t[1])), 16) / 255
+		end
+		
+		self.color = {r,g,b,alpha or 1}
 	end
 end
 
@@ -262,24 +294,6 @@ m.circle = function(x, y, r)
 		strokeWidth = 0,
 		strokeColor = { 0, 0, 0 },
 	}
-	self = newObj(self)
-	return OBJECT:addToStack(self)
-end
-
-m.polygon = function(points)
-	local self = {
-		points = points,
-		type = "polygon",
-		strokeWidth = 0,
-		strokeColor = { 0, 0, 0 },
-	}
-	for key,value in pairs(self.points) do
-		if key%2 == 0 then
-			self.points[key] = -(window.height/2-value) 
-		else
-			self.points[key] = window.width/2-value
-		end
-	end
 	self = newObj(self)
 	return OBJECT:addToStack(self)
 end
