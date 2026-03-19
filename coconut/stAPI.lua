@@ -1,9 +1,11 @@
--- Copyright (c) 2024 IliaKakos2000. Licensed under the MIT License.
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local canStart = false
 window = {}
 window.w, window.h = love.graphics.getWidth(), love.graphics.getHeight()
 window.width, window.height = love.graphics.getWidth(), love.graphics.getHeight()
 window.cx, window.cy = window.w / 2, window.h / 2
+
+mouse = {x = 0,y = 0}
 ----------------------------------------------------------------
 -- INIT
 ----------------------------------------------------------------
@@ -47,6 +49,8 @@ function love.update(dt)
 			value:update()
 		end
 	end
+
+	mouse.x,mouse.y = -(window.w/2 - love.mouse.getX()),window.h/2 - love.mouse.getY()
 end
 
 ----------------------------------------------------------------

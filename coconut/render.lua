@@ -1,5 +1,7 @@
--- Copyright (c) 2024 IliaKakos2000. Licensed under the MIT License.
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local m = {}
+
+local illegals = {group = true}
 
 function love.draw()
 	if display and display.bgColor then
@@ -12,6 +14,7 @@ function love.draw()
 		if v and v.visible then
 			love.graphics.push()
 			local localWidth, localHeight = 0, 0
+			if v.type and not illegals[v.type] then
 			if v.type == "text" then
 				localWidth = v.font:getWidth(v.text)
 				localHeight = v.font:getHeight(v.text)
@@ -23,6 +26,7 @@ function love.draw()
 			else
 				localWidth, localHeight = v._proxy.width, v._proxy.height
 			end
+		end
 			if v.type ~= "circle" and v.type ~= 'polygon' then
 				love.graphics.translate(
 					v._proxy.x + localWidth / 2 * v.anchorX,

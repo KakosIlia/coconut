@@ -2,6 +2,30 @@
 local m = {}
 m.bgColor = { 0, 0, 0 }
 
+m.setBackgroundColor = function(...)
+		local t = {...}
+	if #t == 1 then
+		m.bgColor = t[1]
+	end
+	if #t >= 3 then
+		m.bgColor = {t[1]/255,t[2]/255,t[3]/255}
+	end
+	if #t == 1 and type(t[1]) == 'string' then
+		t[1] = t[1]:gsub("#", "")
+
+		local r = tonumber(t[1]:sub(1, 2), 16) / 255
+		local g = tonumber(t[1]:sub(3, 4), 16) / 255
+		local b = tonumber(t[1]:sub(5, 6), 16) / 255
+		
+		local alpha = 1
+		if #t[1] >= 8 then
+			alpha = tonumber(t[1]:sub(7, string.len(t[1])), 16) / 255
+		end
+		
+		m.bgColor = {r,g,b,alpha or 1}
+	end
+end
+
 local OBJECT = {}
 local illegal = { x = true , y = true}
 OBJECT.__index = OBJECT
@@ -34,6 +58,10 @@ function OBJECT:remove()
 	sceneManager.currentScene.data[self.id] = nil
 end
 
+----------------------------------------------------------------
+-- PHYSICS
+----------------------------------------------------------------
+
 function OBJECT:addFixture()
 		if self.type == "rect" or self.type == "image" then
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
@@ -49,6 +77,20 @@ function OBJECT:setPhysBody(type)
 	self.physBody:setAngle(math.rad(self._proxy.angle or 0))
 end
 
+function OBJECT:setMass(mass)
+	if self.physBody then
+		self.physBody:setMass(mass)
+	end
+end
+
+function OBJECT:setRestitution(rest)
+	if self.physBody then
+		self.physBody:setRestitution(rest)
+	end
+end
+
+
+
 ----------------------------------------------------------------
 -- POSITIONS
 ----------------------------------------------------------------
@@ -56,7 +98,7 @@ end
 function OBJECT:setPosition(x, y)
 	self._proxy.x, self._proxy.y = x, y
 	if self.physBody then
-		self.physBody:setPosition(x, y)
+		self.physBody:setPosition(x, -y)
 	end
 end
 
@@ -70,7 +112,7 @@ end
 function OBJECT:setY(y)
 	self._proxy.y = y
 	if self.physBody then
-		self.physBody:setY(y)
+		self.physBody:setY(-y)
 	end
 end
 
