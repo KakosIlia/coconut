@@ -3,47 +3,47 @@ local m = {}
 m.bgColor = { 0, 0, 0 }
 
 m.setBackgroundColor = function(...)
-		local t = {...}
+	local t = { ... }
 	if #t == 1 then
 		m.bgColor = t[1]
 	end
 	if #t >= 3 then
-		m.bgColor = {t[1]/255,t[2]/255,t[3]/255}
+		m.bgColor = { t[1] / 255, t[2] / 255, t[3] / 255 }
 	end
-	if #t == 1 and type(t[1]) == 'string' then
+	if #t == 1 and type(t[1]) == "string" then
 		t[1] = t[1]:gsub("#", "")
 
 		local r = tonumber(t[1]:sub(1, 2), 16) / 255
 		local g = tonumber(t[1]:sub(3, 4), 16) / 255
 		local b = tonumber(t[1]:sub(5, 6), 16) / 255
-		
+
 		local alpha = 1
 		if #t[1] >= 8 then
 			alpha = tonumber(t[1]:sub(7, string.len(t[1])), 16) / 255
 		end
-		
-		m.bgColor = {r,g,b,alpha or 1}
+
+		m.bgColor = { r, g, b, alpha or 1 }
 	end
 end
 
 local OBJECT = {}
-local illegal = { x = true , y = true}
+local illegal = { x = true, y = true }
 OBJECT.__index = OBJECT
 
 OBJECT.__newindex = function(t, k, v)
 	if illegal[k] then
-		print("ILLEGAL")
+		print("please use :setX, :setY")
 	else
 		rawset(t, k, v)
 	end
 end
 
 function OBJECT:addToStack(self)
-	sceneManager.currentScene.data[#sceneManager.currentScene.data + 1] = self
-	local id = #sceneManager.currentScene.data
+	sceneManager.currentScene.data[getTableSize(sceneManager.currentScene.data) + 1] = self
+	local id = getTableSize(sceneManager.currentScene.data)
 	self.id = id
 
-	return sceneManager.currentScene.data[#sceneManager.currentScene.data]
+	return self
 end
 
 ----------------------------------------------------------------
@@ -55,7 +55,29 @@ function OBJECT:remove()
 		self.press.remove()
 		self.released.remove()
 	end
-	sceneManager.currentScene.data[self.id] = nil
+	if self.fixture then
+		self.fixture:destroy()
+	end
+	if self.physBody then
+		self.physBody:destroy()
+	end
+	local currentSceneData = sceneManager.currentScene.data
+	local removeElement = currentSceneData[self.id]
+	local endElement = currentSceneData[#currentSceneData]
+	if removeElement.id ~= endElement.id then
+		currentSceneData[self.id] = endElement
+		endElement.id = self.id
+	end
+	table.remove(currentSceneData, #currentSceneData)
+	self = nil
+end
+
+function OBJECT:update()
+	if self.physBody then
+		self._proxy.x = self.physBody:getX()
+		self._proxy.y = -self.physBody:getY()
+		self._proxy.angle = math.deg(self.physBody:getAngle())
+	end
 end
 
 ----------------------------------------------------------------
@@ -63,12 +85,13 @@ end
 ----------------------------------------------------------------
 
 function OBJECT:addFixture()
-		if self.type == "rect" or self.type == "image" then
+	if self.type == "rect" or self.type == "image" or self.type == 'imageSheet' then
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
-	elseif self.type == 'circle' then
+	elseif self.type == "circle" then
 		self.physShape = love.physics.newCircleShape(self._proxy.radius)
 	end
 	self.fixture = love.physics.newFixture(self.physBody, self.physShape)
+	self.fixture:setUserData(self)
 end
 
 function OBJECT:setPhysBody(type)
@@ -89,11 +112,30 @@ function OBJECT:setRestitution(rest)
 	end
 end
 
+function OBJECT:setFixedRotation(isFixed)
+    if self.physBody then
+        self.physBody:setFixedRotation(isFixed)
+    end
+end
+
+function OBJECT:setSensor(isSensor)
+    if self.fixture then
+        self.fixture:setSensor(isSensor)
+    end
+end
+
+function OBJECT:setLinearVelocity(vx, vy)
+    if self.physBody then
+        self.physBody:setLinearVelocity(vx, vy)
+    end
+end
 
 
 ----------------------------------------------------------------
 -- POSITIONS
 ----------------------------------------------------------------
+
+--setter
 
 function OBJECT:setPosition(x, y)
 	self._proxy.x, self._proxy.y = x, y
@@ -127,7 +169,7 @@ end
 
 function OBJECT:setWidth(w)
 	self._proxy.width = w
-	if self.physBody then 
+	if self.physBody then
 		self.fixture:destroy()
 		self:addFixture()
 	end
@@ -147,6 +189,8 @@ function OBJECT:setAngle(angle)
 		self.physBody:setAngle(math.rad(angle))
 	end
 end
+
+--getter
 
 function OBJECT:getPosition()
 	return self._proxy.x, self._proxy.y
@@ -177,6 +221,10 @@ function OBJECT:getAngle()
 end
 
 ----------------------------------------------------------------
+-- SMOOTH
+----------------------------------------------------------------
+
+----------------------------------------------------------------
 -- GRAPHICS
 ----------------------------------------------------------------
 
@@ -186,26 +234,35 @@ function OBJECT:setStroke(width, color)
 end
 
 function OBJECT:setColor(...)
-	local t = {...}
+	local t = { ... }
 	if #t == 1 then
 		self.color = t[1]
 	end
 	if #t >= 3 then
-		self.color = {t[1]/255,t[2]/255,t[3]/255}
+		self.color = { t[1] / 255, t[2] / 255, t[3] / 255 }
 	end
-	if #t == 1 and type(t[1]) == 'string' then
+	if #t == 1 and type(t[1]) == "string" then
 		t[1] = t[1]:gsub("#", "")
 
 		local r = tonumber(t[1]:sub(1, 2), 16) / 255
 		local g = tonumber(t[1]:sub(3, 4), 16) / 255
 		local b = tonumber(t[1]:sub(5, 6), 16) / 255
-		
+
 		local alpha = 1
 		if #t[1] >= 8 then
 			alpha = tonumber(t[1]:sub(7, string.len(t[1])), 16) / 255
 		end
-		
-		self.color = {r,g,b,alpha or 1}
+
+		self.color = { r, g, b, alpha or 1 }
+	end
+end
+
+function OBJECT:setFont(font, size)
+	if not assets.get(font) then
+		self.font = love.graphics.newFont(font, size)
+		assets.add(self.font, "font", font)
+	else
+		self.font = assets.get(font)
 	end
 end
 
@@ -270,12 +327,6 @@ function OBJECT:onTouched(fun)
 	end)
 end
 
-function OBJECT:update()
-	self._proxy.x = self.physBody:getX()
-	self._proxy.y = -self.physBody:getY()
-	self._proxy.angle = math.deg(self.physBody:getAngle())
-end
-
 local newObj = function(t)
 	local rt = {}
 	for key, value in pairs(t) do
@@ -291,6 +342,7 @@ local newObj = function(t)
 		visible = true,
 		anchorX = 0,
 		anchorY = 0,
+		layer = 1,
 		_proxy = {
 			angle = 0,
 		},
@@ -348,9 +400,36 @@ m.image = function(image, x, y, w, h)
 			width = w,
 			height = h,
 		},
-		image = love.graphics.newImage(image),
 		type = "image",
 	}
+	if assets.get(image) then
+		self.image = assets.get(image)
+	else
+		self.image = love.graphics.newImage(image)
+		assets.add(self.image, "image", image)
+	end
+	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
+m.imageSheet = function(image, tabPos, x, y, w, h, type)
+	local self = {
+		_proxy = {
+			x = x,
+			y = y,
+			width = w,
+			height = h,
+		},
+		type = "imageSheet",
+	}
+	if assets.get(image) then
+		self.image = assets.get(image)
+	else
+		self.image = love.graphics.newImage(image)
+		assets.add(self.image, "image", image)
+	end
+	self.image:setFilter(type or "linear", type or "linear")
+	self.quad = love.graphics.newQuad(tabPos.x, tabPos.y, tabPos.width, tabPos.height, self.image:getDimensions())
 	self = newObj(self)
 	return OBJECT:addToStack(self)
 end
@@ -365,10 +444,15 @@ m.text = function(text, x, y, font, size)
 		type = "text",
 		size = size,
 	}
-	if font then
-		self.font = love.graphics.newFont(font, size)
+	if not assets.get(font) then
+		if font then
+			self.font = love.graphics.newFont(font, size)
+		else
+			self.font = love.graphics.newFont("default.ttf", 20)
+		end
+		assets.add(self.font, "font", font)
 	else
-		self.font = love.graphics.newFont("default.ttf", 20)
+		self.font = assets.get(font)
 	end
 	self = newObj(self)
 	return OBJECT:addToStack(self)

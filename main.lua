@@ -1,2 +1,2 @@
-require "coconut.init"
-sceneManager.loadScene("examplePhys")
+require("coconut.init")
+sceneManager.loadScene("spaceGame")

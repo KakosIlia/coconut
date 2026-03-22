@@ -1,8 +1,6 @@
 -- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local m = {}
 
-local illegals = {group = true}
-
 function love.draw()
 	if display and display.bgColor then
 		love.graphics.setBackgroundColor(unpack(display.bgColor))
@@ -10,24 +8,33 @@ function love.draw()
 	love.graphics.push()
 	love.graphics.translate(window.cx, window.cy)
 
-	for k, v in pairs(sceneManager.currentScene.data) do
+	local sortedData = {}
+    for k, v in pairs(sceneManager.currentScene.data) do
+        if v and v.visible then
+            table.insert(sortedData, v)
+        end
+    end
+
+    table.sort(sortedData, function(a, b)
+        return (a.layer or 0) < (b.layer or 0) 
+    end)
+
+	for k, v in pairs(sortedData) do
 		if v and v.visible then
 			love.graphics.push()
 			local localWidth, localHeight = 0, 0
-			if v.type and not illegals[v.type] then
-			if v.type == "text" then
-				localWidth = v.font:getWidth(v.text)
-				localHeight = v.font:getHeight(v.text)
-			elseif v.type == "circle" then
-				localWidth = v._proxy.radius * 2
-				localHeight = v._proxy.radius * 2
-			elseif v.type == 'polygon' then 
-
-			else
-				localWidth, localHeight = v._proxy.width, v._proxy.height
+			if v.type then
+				if v.type == "text" then
+					localWidth = v.font:getWidth(v.text)
+					localHeight = v.font:getHeight(v.text)
+				elseif v.type == "circle" then
+					localWidth = v._proxy.radius * 2
+					localHeight = v._proxy.radius * 2
+				else
+					localWidth, localHeight = v._proxy.width, v._proxy.height
+				end
 			end
-		end
-			if v.type ~= "circle" and v.type ~= 'polygon' then
+			if v.type ~= "circle" and v.type ~= "polygon" then
 				love.graphics.translate(
 					v._proxy.x + localWidth / 2 * v.anchorX,
 					-v._proxy.y + localHeight / 2 * v.anchorY
@@ -63,16 +70,18 @@ function love.draw()
 					v._proxy.width / v.image:getWidth(),
 					v._proxy.height / v.image:getHeight()
 				)
+			elseif v.type == "imageSheet" then
+				local _, _, qw, qh = v.quad:getViewport()
+
+				love.graphics.draw(v.image, v.quad, localX, localY, 0, v._proxy.width / qw, v._proxy.height / qh)
 			elseif v.type == "circle" then
 				love.graphics.circle("fill", 0, 0, v._proxy.radius)
 
 				if v.strokeWidth and v.strokeColor and v.strokeWidth ~= 0 then
 					love.graphics.setLineWidth(v.strokeWidth)
 					love.graphics.setColor(unpack(v.strokeColor))
-					love.graphics.circle("line",0,0, v._proxy.radius)
+					love.graphics.circle("line", 0, 0, v._proxy.radius)
 				end
-			elseif v.type == 'polygon' then
-				love.graphics.polygon('fill',v.points)
 			end
 			love.graphics.pop()
 		end

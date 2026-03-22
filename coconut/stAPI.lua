@@ -4,26 +4,39 @@ window = {}
 window.w, window.h = love.graphics.getWidth(), love.graphics.getHeight()
 window.width, window.height = love.graphics.getWidth(), love.graphics.getHeight()
 window.cx, window.cy = window.w / 2, window.h / 2
+window.maxX = window.w / 2
+window.zeroX = -window.w / 2
+window.maxY = window.height / 2
+window.zeroY = -window.height / 2
 
-mouse = {x = 0,y = 0}
+mouse = { x = 0, y = 0 }
 ----------------------------------------------------------------
 -- INIT
 ----------------------------------------------------------------
+
+function getTableSize(table)
+	local size = 0
+	for k, v in pairs(table) do
+		size = size + 1
+	end
+	return size
+end
+
 function love.load()
 	canStart = true
 end
 
 local function addToStack(fun, type, args)
-	sceneManager.currentScene.stack[#sceneManager.currentScene.stack + 1] = {
+	sceneManager.currentScene.stack[getTableSize(sceneManager.currentScene.stack) + 1] = {
 		fun = fun,
 		type = type,
 		args = args or {},
 	}
 	local self = {
-		id = #sceneManager.currentScene.stack,
+		id = getTableSize(sceneManager.currentScene.stack),
 	}
 	self.remove = function()
-		sceneManager.currentScene.stack[self.id] = nil
+		sceneManager.currentScene.stack[self.id] = "removed"
 	end
 	return self
 end
@@ -38,27 +51,26 @@ end
 
 function love.update(dt)
 	for k, v in pairs(sceneManager.currentScene.stack) do
-		if v and v.type == "loop" and canStart then
+		if v and v.type == "loop" and v ~= "removed" then
 			v.fun(dt)
 		end
 	end
 	sceneManager.currentScene.physWorld:update(dt)
 
 	for key, value in pairs(sceneManager.currentScene.data) do
-		if value.physBody then
-			value:update()
-		end
+		value:update()
 	end
 
-	mouse.x,mouse.y = -(window.w/2 - love.mouse.getX()),window.h/2 - love.mouse.getY()
+	mouse.x, mouse.y = -(window.w / 2 - love.mouse.getX()), window.h / 2 - love.mouse.getY()
+	timer.update(dt)
+	transition.update(dt)
 end
 
 ----------------------------------------------------------------
 -- KEYS
 ----------------------------------------------------------------
 function onKeyPressed(fun)
-	local self
-	addToStack(fun, "keyboard")
+	local self = addToStack(fun, "keyboard")
 	return self
 end
 

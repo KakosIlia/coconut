@@ -3,9 +3,29 @@ local m = {}
 
 m.init = function()
 	sceneManager.currentScene.coll = {}
-	sceneManager.currentScene.coll.beginContact = function(a, b, coll) end
-	sceneManager.currentScene.coll.endContact = function(a, b, coll) end
-	sceneManager.currentScene.physWorld:setCallbacks(beginContact, endContact, preSolve, postSolve)
+	local beginContact = function(a, b, coll)
+		local obj1 = a:getUserData()
+		local obj2 = b:getUserData()
+		for k, v in pairs(sceneManager.currentScene.data) do
+			if v == obj1 or v == obj2 then
+				if v.beginContact and v.physBody then
+					v.beginContact(obj1, obj2)
+				end
+			end
+		end
+	end
+	local endContact = function(a, b, coll)
+		local obj1 = a:getUserData()
+		local obj2 = b:getUserData()
+		for k, v in pairs(sceneManager.currentScene.data) do
+			if v == obj1 or v == obj2 then
+				if v.endContact and v.physBody then
+					v.endContact(obj1, obj2)
+				end
+			end
+		end
+	end
+	sceneManager.currentScene.physWorld:setCallbacks(beginContact, endContact)
 end
 
 m.setPhysicsMeter = function(meter)

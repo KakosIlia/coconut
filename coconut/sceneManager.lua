@@ -2,6 +2,8 @@
 local m = {}
 
 m.loadScene = function(name)
+	timer.cancelAll()
+	sound.stopAll()
 	package.loaded["scenes." .. name] = nil
 	m.currentScene = {
 		name = name,
