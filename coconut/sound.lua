@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local m = {}
 local sounds = {}
 
@@ -12,7 +13,7 @@ m.play = function(name, volume, pitch)
     if s then
         local instance = s:clone()
         instance:setVolume(volume or 1)
-        instance:setPitch(pitch or (0.9 + math.random() * 0.2)) -- бонус: небольшой рандом питча
+        instance:setPitch(pitch or (0.9 + math.random() * 0.2))
         instance:play()
     end
 end

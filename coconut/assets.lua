@@ -19,4 +19,8 @@ m.get = function(name)
 	return inAssets
 end
 
+m.clear = function()
+	assets = {}
+end
+
 return m

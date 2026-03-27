@@ -9,7 +9,14 @@ window.zeroX = -window.w / 2
 window.maxY = window.height / 2
 window.zeroY = -window.height / 2
 
+currentDelta = 0
+totalTime = 0
+
 mouse = { x = 0, y = 0 }
+
+function clamp(val, min, max)
+	return math.max(min, math.min(max, val))
+end
 ----------------------------------------------------------------
 -- INIT
 ----------------------------------------------------------------
@@ -27,18 +34,24 @@ function love.load()
 end
 
 local function addToStack(fun, type, args)
-	sceneManager.currentScene.stack[getTableSize(sceneManager.currentScene.stack) + 1] = {
-		fun = fun,
-		type = type,
-		args = args or {},
-	}
-	local self = {
-		id = getTableSize(sceneManager.currentScene.stack),
-	}
-	self.remove = function()
-		sceneManager.currentScene.stack[self.id] = "removed"
-	end
-	return self
+    local stack = sceneManager.currentScene.stack
+    local entry = {
+        fun = fun,
+        type = type,
+        args = args or {},
+    }
+    table.insert(stack, entry)
+
+    return {
+        remove = function()
+            for i = #stack, 1, -1 do
+                if stack[i] == entry then
+                    table.remove(stack, i)
+                    break
+                end
+            end
+        end
+    }
 end
 
 ----------------------------------------------------------------
@@ -50,11 +63,13 @@ function loop(fun)
 end
 
 function love.update(dt)
-	for k, v in pairs(sceneManager.currentScene.stack) do
-		if v and v.type == "loop" and v ~= "removed" then
-			v.fun(dt)
-		end
-	end
+    local stack = sceneManager.currentScene.stack
+    for i = #stack, 1, -1 do
+        local v = stack[i]
+        if v and v.type == "loop" then
+            v.fun(dt)
+        end
+    end
 	sceneManager.currentScene.physWorld:update(dt)
 
 	for key, value in pairs(sceneManager.currentScene.data) do
@@ -64,6 +79,8 @@ function love.update(dt)
 	mouse.x, mouse.y = -(window.w / 2 - love.mouse.getX()), window.h / 2 - love.mouse.getY()
 	timer.update(dt)
 	transition.update(dt)
+	currentDelta = dt
+	totalTime = totalTime + dt
 end
 
 ----------------------------------------------------------------

@@ -3,15 +3,12 @@ sound.load('laserSound','scenes/spaceGame/laser.mp3')
 sound.load('bgMusic','scenes/spaceGame/music.mp3')
 sound.play('bgMusic')
 
-local function clamp(val, min, max)
-	return math.max(min, math.min(max, val))
-end
-
 local bg = display.image('scenes/spaceGame/background.png',0,0,window.width,window.width)
 local info = display.text('Score: 0',window.zeroX,window.maxY)
 info.anchorX = 1
 info.anchorY = 1
 info:setFont('scenes/spaceGame/future.ttf',20)
+info.layer = 3
 
 local player = display.imageSheet("scenes/spaceGame/sheet.png", { x = 425, y = 468, width = 93, height = 84 }, 0, 0, 50, 50, "nearest")
 player:setAngle(180)
@@ -170,7 +167,7 @@ loop(function(dt)
 			health = health - 1
 
 			if health <= 0 then
-				sceneManager.loadScene('spaceGame_gameOver')
+				sceneManager.loadScene('spaceGame')
 			end
 		end
 	end

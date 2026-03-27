@@ -9,20 +9,26 @@ function love.draw()
 	love.graphics.translate(window.cx, window.cy)
 
 	local sortedData = {}
-    for k, v in pairs(sceneManager.currentScene.data) do
-        if v and v.visible then
-            table.insert(sortedData, v)
-        end
-    end
+	for k, v in pairs(sceneManager.currentScene.data) do
+		if v and v.visible then
+			table.insert(sortedData, v)
+		end
+	end
 
-    table.sort(sortedData, function(a, b)
-        return (a.layer or 0) < (b.layer or 0) 
-    end)
+	table.sort(sortedData, function(a, b)
+		return (a.layer or 0) < (b.layer or 0)
+	end)
 
 	for k, v in pairs(sortedData) do
-		if v and v.visible then
+		if v and v.visible and v.type then
 			love.graphics.push()
 			local localWidth, localHeight = 0, 0
+			if v._proxy.shader then
+				for name, shKey in pairs(v._proxy.shaderData) do
+					v._proxy.shader:send(name, shKey)
+				end
+				love.graphics.setShader(v._proxy.shader)
+			end
 			if v.type then
 				if v.type == "text" then
 					localWidth = v.font:getWidth(v.text)
@@ -82,6 +88,9 @@ function love.draw()
 					love.graphics.setColor(unpack(v.strokeColor))
 					love.graphics.circle("line", 0, 0, v._proxy.radius)
 				end
+			end
+			if v._proxy.shader then
+				love.graphics.setShader()
 			end
 			love.graphics.pop()
 		end

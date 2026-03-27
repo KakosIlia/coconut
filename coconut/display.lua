@@ -1,4 +1,4 @@
--- Copyright (c) 2024 IliaKakos2000. Licensed under the MIT License.
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local m = {}
 m.bgColor = { 0, 0, 0 }
 
@@ -54,6 +54,7 @@ function OBJECT:remove()
 	if self.press then
 		self.press.remove()
 		self.released.remove()
+		self.moved:remove()
 	end
 	if self.fixture then
 		self.fixture:destroy()
@@ -61,15 +62,13 @@ function OBJECT:remove()
 	if self.physBody then
 		self.physBody:destroy()
 	end
-	local currentSceneData = sceneManager.currentScene.data
-	local removeElement = currentSceneData[self.id]
-	local endElement = currentSceneData[#currentSceneData]
-	if removeElement.id ~= endElement.id then
-		currentSceneData[self.id] = endElement
-		endElement.id = self.id
-	end
-	table.remove(currentSceneData, #currentSceneData)
-	self = nil
+    local data = sceneManager.currentScene.data
+    for i = #data, 1, -1 do
+        if data[i] == self then
+            table.remove(data, i)
+            break 
+        end
+    end
 end
 
 function OBJECT:update()
@@ -108,7 +107,7 @@ end
 
 function OBJECT:setRestitution(rest)
 	if self.physBody then
-		self.physBody:setRestitution(rest)
+		self.fixture:setRestitution(rest)
 	end
 end
 
@@ -266,66 +265,112 @@ function OBJECT:setFont(font, size)
 	end
 end
 
+function OBJECT:setShader(code,tOfSends)
+	self._proxy.shader = love.graphics.newShader(code)
+	self._proxy.shaderData = tOfSends or {}
+end
+
+function OBJECT:sendToShader(data)
+	if self then 
+		v._proxy.shaderData = data
+	end
+end
+
 ----------------------------------------------------------------
 -- MOUSE
 ----------------------------------------------------------------
+function OBJECT:getInverseMouse()
+    local mx = love.mouse.getX() - window.cx
+    local my = -(love.mouse.getY() - window.cy)
 
+    local dx = mx - self._proxy.x
+    local dy = my - self._proxy.y
+
+    local angle = math.rad(self._proxy.angle or 0)
+    local cosA = math.cos(-angle)
+    local sinA = math.sin(-angle)
+
+    local localX = dx * cosA - dy * sinA
+    local localY = dx * sinA + dy * cosA
+
+    local w, h = 0, 0
+    if self.type == "circle" then
+        w, h = self._proxy.radius * 2, self._proxy.radius * 2
+    elseif self.type == "text" then
+        w = self.font:getWidth(self.text)
+        h = self.font:getHeight(self.text)
+    else
+        w, h = self._proxy.width or 0, self._proxy.height or 0
+    end
+
+    local finalX = localX - (w / 2 * (self.anchorX or 0))
+    local finalY = localY - (h / 2 * (self.anchorY or 0))
+
+    return finalX, finalY
+end
 function OBJECT:inMouse()
-	local mx = love.mouse.getX() - window.cx
-	local my = -love.mouse.getY() + window.cy
+    local lx, ly = self:getInverseMouse()
 
-	local dx = mx - self._proxy.x
-	local dy = my - self._proxy.y
+    if self.type == "circle" then
+        local radius = self._proxy.radius or 0
+        return (lx * lx + ly * ly) <= (radius * radius)
 
-	local angle = math.rad(self._proxy.angle or 0)
-	local cosA = math.cos(-angle)
-	local sinA = math.sin(-angle)
+    elseif self.type == "text" then
+        if not self.font then return false end
+        local tw = self.font:getWidth(self.text)
+        local th = self.font:getHeight(self.text)
+        return math.abs(lx) < (tw / 2) and math.abs(ly) < (th / 2)
 
-	local localX = dx * cosA - dy * sinA
-	local localY = dx * sinA + dy * cosA
-
-	return math.abs(localX) < self._proxy.width / 2 and math.abs(localY) < self._proxy.height / 2
+    else
+        local w = self._proxy.width or 0
+        local h = self._proxy.height or 0
+        return math.abs(lx) < (w / 2) and math.abs(ly) < (h / 2)
+    end
 end
 
 function OBJECT:onTouched(fun)
-	local rt = {
-		x = 0,
-		y = 0,
-		phase = "",
-	}
-	self.press = onMousePressed(function(x, y, b)
-		if self:inMouse() then
-			rt.phase = "began"
-			rt.x = x
-			rt.y = y
-			rt.button = b
-			rt.self = self
-			fun(rt)
-		end
-	end)
+    local rt = { phase = "", x = 0, y = 0, lx = 0, ly = 0 }
 
-	self.moved = onMouseMoved(function(x, y, dx, dy, ist)
-		if self:inMouse() then
-			rt.phase = "moved"
-			rt.x = x
-			rt.y = y
-			rt.dx = dx
-			rt.dy = dy
-			rt.self = self
-			fun(rt)
-		end
-	end)
-	self.released = onMouseReleased(function(x, y, b)
-		if self:inMouse() or self.focused then
-			rt.phase = "ended"
-			rt.x = x
-			rt.y = y
-			rt.button = b
-			rt.self = self
-			fun(rt)
-		end
-	end)
+    self.press = onMousePressed(function(x, y, b)
+        if self:inMouse() then
+            local lx, ly = self:getInverseMouse()
+            rt.phase = "began"
+            rt.x, rt.y = x, y 
+            rt.lx, rt.ly = lx, ly
+            rt.button = b
+            rt.target = self
+            fun(rt)
+            self.focused = true
+        end
+    end)
+
+    self.moved = onMouseMoved(function(x, y, dx, dy)
+        if self.focused or self:inMouse() then
+            local lx, ly = self:getInverseMouse()
+            rt.phase = "moved"
+            rt.x, rt.y = x, y
+            rt.lx, rt.ly = lx, ly
+            rt.dx, rt.dy = dx, dy
+            fun(rt)
+        end
+    end)
+
+    self.released = onMouseReleased(function(x, y, b)
+        if self.focused then
+            local lx, ly = self:getInverseMouse()
+            rt.phase = "ended"
+            rt.x, rt.y = x, y
+            rt.lx, rt.ly = lx, ly
+            rt.button = b
+            fun(rt)
+            self.focused = false
+        end
+    end)
 end
+
+----------------------------------------------------------------
+-- NEW_OBJ
+----------------------------------------------------------------
 
 local newObj = function(t)
 	local rt = {}
@@ -361,6 +406,12 @@ end
 -- API модуля
 ----------------------------------------------------------------
 
+m.new = function()
+	local self = {}
+	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
 m.rect = function(x, y, w, h)
 	local self = {
 		_proxy = {
@@ -376,6 +427,7 @@ m.rect = function(x, y, w, h)
 	self = newObj(self)
 	return OBJECT:addToStack(self)
 end
+
 
 m.circle = function(x, y, r)
 	local self = {
