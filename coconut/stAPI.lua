@@ -1,5 +1,5 @@
 -- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
-local canStart = false
+canStart = false
 window = {}
 window.w, window.h = love.graphics.getWidth(), love.graphics.getHeight()
 window.width, window.height = love.graphics.getWidth(), love.graphics.getHeight()
@@ -34,24 +34,24 @@ function love.load()
 end
 
 local function addToStack(fun, type, args)
-    local stack = sceneManager.currentScene.stack
-    local entry = {
-        fun = fun,
-        type = type,
-        args = args or {},
-    }
-    table.insert(stack, entry)
+	local stack = sceneManager.currentScene.stack
+	local entry = {
+		fun = fun,
+		type = type,
+		args = args or {},
+	}
+	table.insert(stack, entry)
 
-    return {
-        remove = function()
-            for i = #stack, 1, -1 do
-                if stack[i] == entry then
-                    table.remove(stack, i)
-                    break
-                end
-            end
-        end
-    }
+	return {
+		remove = function()
+			for i = #stack, 1, -1 do
+				if stack[i] == entry then
+					table.remove(stack, i)
+					break
+				end
+			end
+		end,
+	}
 end
 
 ----------------------------------------------------------------
@@ -63,24 +63,26 @@ function loop(fun)
 end
 
 function love.update(dt)
-    local stack = sceneManager.currentScene.stack
-    for i = #stack, 1, -1 do
-        local v = stack[i]
-        if v and v.type == "loop" then
-            v.fun(dt)
-        end
-    end
-	sceneManager.currentScene.physWorld:update(dt)
+	if canStart then
+		local stack = sceneManager.currentScene.stack
+		for i = #stack, 1, -1 do
+			local v = stack[i]
+			if v and v.type == "loop" then
+				v.fun(dt)
+			end
+		end
+		sceneManager.currentScene.physWorld:update(dt)
 
-	for key, value in pairs(sceneManager.currentScene.data) do
-		value:update()
+		for key, value in pairs(sceneManager.currentScene.data) do
+			value:update()
+		end
+
+		mouse.x, mouse.y = -(window.w / 2 - love.mouse.getX()), window.h / 2 - love.mouse.getY()
+		timer.update(dt)
+		transition.update(dt)
+		currentDelta = dt
+		totalTime = totalTime + dt
 	end
-
-	mouse.x, mouse.y = -(window.w / 2 - love.mouse.getX()), window.h / 2 - love.mouse.getY()
-	timer.update(dt)
-	transition.update(dt)
-	currentDelta = dt
-	totalTime = totalTime + dt
 end
 
 ----------------------------------------------------------------
@@ -134,6 +136,11 @@ function onMouseMoved(fun)
 	return self
 end
 
+function onWheelMoved(fun)
+	local self = addToStack(fun, "mouseWM")
+	return self
+end
+
 function love.mousepressed(x, y, button)
 	for k, v in pairs(sceneManager.currentScene.stack) do
 		if v and v.type == "mouse" then
@@ -154,6 +161,14 @@ function love.mousemoved(x, y, dx, dy, istouch)
 	for k, v in pairs(sceneManager.currentScene.stack) do
 		if v and v.type == "mouseM" then
 			v.fun(x, y, dx, dy, istouch)
+		end
+	end
+end
+
+function love.wheelmoved(x, y)
+	for k, v in pairs(sceneManager.currentScene.stack) do
+		if v and v.type == "mouseWM" then
+			v.fun(x, y)
 		end
 	end
 end

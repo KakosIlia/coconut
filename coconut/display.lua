@@ -62,21 +62,61 @@ function OBJECT:remove()
 	if self.physBody then
 		self.physBody:destroy()
 	end
-    local data = sceneManager.currentScene.data
-    for i = #data, 1, -1 do
-        if data[i] == self then
-            table.remove(data, i)
-            break 
-        end
-    end
+
+	if self.children then
+		for i = #self.children, 1, -1 do
+			self.children[i]:remove()
+		end
+	end
+
+	local sourceTable
+	if self.parent then
+		sourceTable = self.parent.children
+	else
+		sourceTable = sceneManager.currentScene.data
+	end
+
+	if sourceTable then
+		for i = #sourceTable, 1, -1 do
+			if sourceTable[i] == self then
+				local s = sourceTable[i]
+				if s.physBody then
+					s.physBody:destroy()
+					s.fixture:destroy()
+				end
+				if s.press then
+					s.press.remove()
+					s.released.remove()
+					s.moved:remove()
+				end
+				table.remove(sourceTable, i)
+				break
+			end
+		end
+	end
 end
 
 function OBJECT:update()
-	if self.physBody then
-		self._proxy.x = self.physBody:getX()
-		self._proxy.y = -self.physBody:getY()
-		self._proxy.angle = math.deg(self.physBody:getAngle())
+	if self and self.physBody then
+		self._proxy.x = self.physBody:getX() or 0
+		self._proxy.y = -self.physBody:getY() or 0
+		self._proxy.angle = math.deg(self.physBody:getAngle()) or 0
 	end
+end
+
+function OBJECT:insert(obj)
+	for i = #sceneManager.currentScene.data, 1, -1 do
+		if sceneManager.currentScene.data[i] == obj then
+			table.remove(sceneManager.currentScene.data, i)
+			break
+		end
+	end
+
+	obj.parent = self
+
+	table.insert(self.children, obj)
+
+	return obj
 end
 
 ----------------------------------------------------------------
@@ -84,7 +124,7 @@ end
 ----------------------------------------------------------------
 
 function OBJECT:addFixture()
-	if self.type == "rect" or self.type == "image" or self.type == 'imageSheet' then
+	if self.type == "rect" or self.type == "image" or self.type == "imageSheet" then
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
 	elseif self.type == "circle" then
 		self.physShape = love.physics.newCircleShape(self._proxy.radius)
@@ -112,23 +152,22 @@ function OBJECT:setRestitution(rest)
 end
 
 function OBJECT:setFixedRotation(isFixed)
-    if self.physBody then
-        self.physBody:setFixedRotation(isFixed)
-    end
+	if self.physBody then
+		self.physBody:setFixedRotation(isFixed)
+	end
 end
 
 function OBJECT:setSensor(isSensor)
-    if self.fixture then
-        self.fixture:setSensor(isSensor)
-    end
+	if self.fixture then
+		self.fixture:setSensor(isSensor)
+	end
 end
 
 function OBJECT:setLinearVelocity(vx, vy)
-    if self.physBody then
-        self.physBody:setLinearVelocity(vx, vy)
-    end
+	if self.physBody then
+		self.physBody:setLinearVelocity(vx, vy)
+	end
 end
-
 
 ----------------------------------------------------------------
 -- POSITIONS
@@ -219,9 +258,18 @@ function OBJECT:getAngle()
 	return self._proxy.angle
 end
 
-----------------------------------------------------------------
--- SMOOTH
-----------------------------------------------------------------
+function OBJECT:lookAt(targetX, targetY)
+	local x, y = self:getPosition()
+
+	local dx = targetX - x
+	local dy = targetY - y
+
+	local angleRad = math.atan2(-dy, dx)
+
+	local angleDeg = math.deg(angleRad)
+
+	self:setAngle(angleDeg)
+end
 
 ----------------------------------------------------------------
 -- GRAPHICS
@@ -230,6 +278,10 @@ end
 function OBJECT:setStroke(width, color)
 	self.strokeWidth = width
 	self.strokeColor = color
+end
+
+function OBJECT:setRenderRect(x, y, width, height)
+	self._proxy.scissors = { x = x, y = y, width = width, height = height }
 end
 
 function OBJECT:setColor(...)
@@ -265,14 +317,14 @@ function OBJECT:setFont(font, size)
 	end
 end
 
-function OBJECT:setShader(code,tOfSends)
+function OBJECT:setShader(code, tOfSends)
 	self._proxy.shader = love.graphics.newShader(code)
 	self._proxy.shaderData = tOfSends or {}
 end
 
 function OBJECT:sendToShader(data)
-	if self then 
-		v._proxy.shaderData = data
+	if self and self._proxy.shader then
+		self._proxy.shaderData = data
 	end
 end
 
@@ -280,92 +332,93 @@ end
 -- MOUSE
 ----------------------------------------------------------------
 function OBJECT:getInverseMouse()
-    local mx = love.mouse.getX() - window.cx
-    local my = -(love.mouse.getY() - window.cy)
+	local mx = love.mouse.getX() - window.cx
+	local my = -(love.mouse.getY() - window.cy)
 
-    local dx = mx - self._proxy.x
-    local dy = my - self._proxy.y
+	local dx = mx - self._proxy.x
+	local dy = my - self._proxy.y
 
-    local angle = math.rad(self._proxy.angle or 0)
-    local cosA = math.cos(-angle)
-    local sinA = math.sin(-angle)
+	local angle = math.rad(self._proxy.angle or 0)
+	local cosA = math.cos(-angle)
+	local sinA = math.sin(-angle)
 
-    local localX = dx * cosA - dy * sinA
-    local localY = dx * sinA + dy * cosA
+	local localX = dx * cosA - dy * sinA
+	local localY = dx * sinA + dy * cosA
 
-    local w, h = 0, 0
-    if self.type == "circle" then
-        w, h = self._proxy.radius * 2, self._proxy.radius * 2
-    elseif self.type == "text" then
-        w = self.font:getWidth(self.text)
-        h = self.font:getHeight(self.text)
-    else
-        w, h = self._proxy.width or 0, self._proxy.height or 0
-    end
+	local w, h = 0, 0
+	if self.type == "circle" then
+		w, h = self._proxy.radius * 2, self._proxy.radius * 2
+	elseif self.type == "text" then
+		w = self.font:getWidth(self.text)
+		h = self.font:getHeight(self.text)
+	else
+		w, h = self._proxy.width or 0, self._proxy.height or 0
+	end
 
-    local finalX = localX - (w / 2 * (self.anchorX or 0))
-    local finalY = localY - (h / 2 * (self.anchorY or 0))
+	local finalX = localX - (w / 2 * (self.anchorX or 0))
+	local finalY = localY - (h / 2 * (self.anchorY or 0))
 
-    return finalX, finalY
+	return finalX, finalY
 end
 function OBJECT:inMouse()
-    local lx, ly = self:getInverseMouse()
+	local lx, ly = self:getInverseMouse()
 
-    if self.type == "circle" then
-        local radius = self._proxy.radius or 0
-        return (lx * lx + ly * ly) <= (radius * radius)
-
-    elseif self.type == "text" then
-        if not self.font then return false end
-        local tw = self.font:getWidth(self.text)
-        local th = self.font:getHeight(self.text)
-        return math.abs(lx) < (tw / 2) and math.abs(ly) < (th / 2)
-
-    else
-        local w = self._proxy.width or 0
-        local h = self._proxy.height or 0
-        return math.abs(lx) < (w / 2) and math.abs(ly) < (h / 2)
-    end
+	if self.type == "circle" then
+		local radius = self._proxy.radius or 0
+		return (lx * lx + ly * ly) <= (radius * radius)
+	elseif self.type == "text" then
+		if not self.font then
+			return false
+		end
+		local tw = self.font:getWidth(self.text)
+		local th = self.font:getHeight(self.text)
+		return math.abs(lx) < (tw / 2) and math.abs(ly) < (th / 2)
+	else
+		local w = self._proxy.width or 0
+		local h = self._proxy.height or 0
+		return math.abs(lx) < (w / 2) and math.abs(ly) < (h / 2)
+	end
 end
 
 function OBJECT:onTouched(fun)
-    local rt = { phase = "", x = 0, y = 0, lx = 0, ly = 0 }
+	local rt = { phase = "", x = 0, y = 0, lx = 0, ly = 0 }
 
-    self.press = onMousePressed(function(x, y, b)
-        if self:inMouse() then
-            local lx, ly = self:getInverseMouse()
-            rt.phase = "began"
-            rt.x, rt.y = x, y 
-            rt.lx, rt.ly = lx, ly
-            rt.button = b
-            rt.target = self
-            fun(rt)
-            self.focused = true
-        end
-    end)
+	self.press = onMousePressed(function(x, y, b)
+		if self:inMouse() then
+			local lx, ly = self:getInverseMouse()
+			rt.phase = "began"
+			rt.x, rt.y = x, y
+			rt.lx, rt.ly = lx, ly
+			rt.button = b
+			rt.target = self
+			fun(rt)
+			self.focused = true
+		end
+	end)
 
-    self.moved = onMouseMoved(function(x, y, dx, dy)
-        if self.focused or self:inMouse() then
-            local lx, ly = self:getInverseMouse()
-            rt.phase = "moved"
-            rt.x, rt.y = x, y
-            rt.lx, rt.ly = lx, ly
-            rt.dx, rt.dy = dx, dy
-            fun(rt)
-        end
-    end)
+	self.moved = onMouseMoved(function(x, y, dx, dy)
+		if self.focused or self:inMouse() then
+			local lx, ly = self:getInverseMouse()
+			rt.phase = "moved"
+			rt.x, rt.y = x, y
+			rt.lx, rt.ly = lx, ly
+			rt.dx, rt.dy = dx, dy
+			rt.target = self
+			fun(rt)
+		end
+	end)
 
-    self.released = onMouseReleased(function(x, y, b)
-        if self.focused then
-            local lx, ly = self:getInverseMouse()
-            rt.phase = "ended"
-            rt.x, rt.y = x, y
-            rt.lx, rt.ly = lx, ly
-            rt.button = b
-            fun(rt)
-            self.focused = false
-        end
-    end)
+	self.released = onMouseReleased(function(x, y, b)
+		if self.focused then
+			local lx, ly = self:getInverseMouse()
+			rt.phase = "ended"
+			rt.x, rt.y = x, y
+			rt.lx, rt.ly = lx, ly
+			rt.button = b
+			fun(rt)
+			self.focused = false
+		end
+	end)
 end
 
 ----------------------------------------------------------------
@@ -391,6 +444,7 @@ local newObj = function(t)
 		_proxy = {
 			angle = 0,
 		},
+		children = {},
 	}
 
 	for k, v in pairs(st) do
@@ -406,12 +460,6 @@ end
 -- API модуля
 ----------------------------------------------------------------
 
-m.new = function()
-	local self = {}
-	self = newObj(self)
-	return OBJECT:addToStack(self)
-end
-
 m.rect = function(x, y, w, h)
 	local self = {
 		_proxy = {
@@ -419,6 +467,7 @@ m.rect = function(x, y, w, h)
 			y = y,
 			width = w,
 			height = h,
+			angle = 0,
 		},
 		type = "rect",
 		strokeWidth = 0,
@@ -428,13 +477,13 @@ m.rect = function(x, y, w, h)
 	return OBJECT:addToStack(self)
 end
 
-
 m.circle = function(x, y, r)
 	local self = {
 		_proxy = {
 			x = x,
 			y = y,
 			radius = r,
+			angle = 0,
 		},
 		type = "circle",
 		strokeWidth = 0,
@@ -451,6 +500,7 @@ m.image = function(image, x, y, w, h)
 			y = y,
 			width = w,
 			height = h,
+			angle = 0,
 		},
 		type = "image",
 	}
@@ -471,6 +521,7 @@ m.imageSheet = function(image, tabPos, x, y, w, h, type)
 			y = y,
 			width = w,
 			height = h,
+			angle = 0,
 		},
 		type = "imageSheet",
 	}
@@ -495,6 +546,7 @@ m.text = function(text, x, y, font, size)
 		text = text,
 		type = "text",
 		size = size,
+		angle = 0,
 	}
 	if not assets.get(font) then
 		if font then
@@ -507,6 +559,63 @@ m.text = function(text, x, y, font, size)
 		self.font = assets.get(font)
 	end
 	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
+m.formattedText = function(textF, x, y, font, size)
+	local self = {
+		_proxy = {
+			x = x,
+			y = y,
+		},
+		text = textF,
+		type = "textF",
+		size = size,
+		angle = 0,
+	}
+	if not assets.get(font) then
+		if font then
+			self.font = love.graphics.newFont(font, size)
+		else
+			self.font = love.graphics.newFont("default.ttf", 20)
+		end
+		assets.add(self.font, "font", font)
+	else
+		self.font = assets.get(font)
+	end
+
+	self.getText = function()
+		local result = ""
+		for k, v in pairs(self.text) do
+			if type(v) == "string" then
+				result = result .. v
+			end
+		end
+		return result
+	end
+	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
+m.line = function(...)
+	local self = {
+		points = { ... },
+		type = "line",
+		lineSize = 2,
+		_proxy = {
+			angle = 0,
+		},
+	}
+	self = newObj(self)
+
+	self.retakePoints = function()
+		for i = 1, #self.points do
+			if i % 2 == 0 then
+				self.points[i] = -self.points[i]
+			end
+		end
+	end
+	self.retakePoints()
 	return OBJECT:addToStack(self)
 end
 

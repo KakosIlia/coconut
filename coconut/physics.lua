@@ -8,8 +8,12 @@ m.init = function()
 		local obj2 = b:getUserData()
 		for k, v in pairs(sceneManager.currentScene.data) do
 			if v == obj1 or v == obj2 then
+				local other = obj1
+				if v == obj1 then
+					other = obj2
+				end
 				if v.beginContact and v.physBody then
-					v.beginContact(obj1, obj2)
+					v.beginContact(other,coll)
 				end
 			end
 		end
@@ -20,7 +24,11 @@ m.init = function()
 		for k, v in pairs(sceneManager.currentScene.data) do
 			if v == obj1 or v == obj2 then
 				if v.endContact and v.physBody then
-					v.endContact(obj1, obj2)
+					local other = obj1
+					if v == obj1 then
+						other = obj2
+					end
+					v.endContact(other, coll)
 				end
 			end
 		end
@@ -43,6 +51,17 @@ end
 -- joints in development
 m.distanceJoint = function(body1, body2, x1, y1, x2, y2, canCollide)
 	return love.physics.newDistanceJoint(body1.physBody, body2.physBody, x1, y1, x2, y2, canCollide)
+end
+
+m.mouseJoint = function(body,x,y)
+	local joint = love.physics.newMouseJoint(body.physBody,x,-y)
+	loop(function()
+		if not joint:isDestroyed() then
+			joint:setTarget(mouse.x,-mouse.y)
+		end
+	end)
+
+	return joint
 end
 
 return m

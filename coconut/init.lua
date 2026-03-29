@@ -31,6 +31,7 @@ render = require("coconut.render")
 sceneManager = require("coconut.sceneManager")
 display = require("coconut.display")
 require("coconut.stAPI")
+require 'coconut.engineLibs.externCPP'
 g3d = require("g3d.init")
 physics = require("coconut.physics")
 transition = require('coconut.transition')

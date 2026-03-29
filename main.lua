@@ -1,2 +1,2 @@
-require("coconut.init")
-sceneManager.loadScene("test")
+require 'coconut.init'
+sceneManager.loadScene('test')
