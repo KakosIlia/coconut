@@ -59,7 +59,7 @@ local function drawObject(v)
 		love.graphics.print(v.text, localX, localY)
 	elseif v.type == "textF" then
 		love.graphics.setFont(v.font or love.graphics.getFont())
-		love.graphics.printf(v.text, localX, localY,v.limit or window.width)
+		love.graphics.printf(v.text, localX, localY,v.limit or window.width,v.align or 'left')
 	elseif v.type == "image" then
 		love.graphics.draw(v.image, localX, localY, 0, v._proxy.width / v.image:getWidth(), v._proxy.height / v.image:getHeight())
 	elseif v.type == "imageSheet" then

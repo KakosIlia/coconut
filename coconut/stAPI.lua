@@ -13,7 +13,6 @@ currentDelta = 0
 totalTime = 0
 
 mouse = { x = 0, y = 0 }
-
 function clamp(val, min, max)
 	return math.max(min, math.min(max, val))
 end
@@ -31,6 +30,18 @@ end
 
 function love.load()
 	canStart = true
+
+	local currentOs = love.system.getOS()
+	print(currentOs)
+
+	window = {}
+	window.w, window.h = love.graphics.getWidth(), love.graphics.getHeight()
+	window.width, window.height = love.graphics.getWidth(), love.graphics.getHeight()
+	window.cx, window.cy = window.w / 2, window.h / 2
+	window.maxX = window.w / 2
+	window.zeroX = -window.w / 2
+	window.maxY = window.height / 2
+	window.zeroY = -window.height / 2
 end
 
 local function addToStack(fun, type, args)

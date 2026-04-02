@@ -80,7 +80,7 @@ function OBJECT:remove()
 		for i = #sourceTable, 1, -1 do
 			if sourceTable[i] == self then
 				local s = sourceTable[i]
-				if s.physBody then
+				if s.physBody and not s.physBody:isDestroyed() then
 					s.physBody:destroy()
 					s.fixture:destroy()
 				end
@@ -493,7 +493,7 @@ m.circle = function(x, y, r)
 	return OBJECT:addToStack(self)
 end
 
-m.image = function(image, x, y, w, h)
+m.image = function(image, x, y, w, h,type )
 	local self = {
 		_proxy = {
 			x = x,
@@ -508,6 +508,7 @@ m.image = function(image, x, y, w, h)
 		self.image = assets.get(image)
 	else
 		self.image = love.graphics.newImage(image)
+		self.image:setFilter(type or 'linear',type or 'linear')
 		assets.add(self.image, "image", image)
 	end
 	self = newObj(self)
@@ -586,10 +587,14 @@ m.formattedText = function(textF, x, y, font, size)
 
 	self.getText = function()
 		local result = ""
-		for k, v in pairs(self.text) do
-			if type(v) == "string" then
-				result = result .. v
+		if type(self.text) == "table" then
+			for k, v in pairs(self.text) do
+				if type(v) == "string" then
+					result = result .. v
+				end
 			end
+		else
+			result = self.text
 		end
 		return result
 	end

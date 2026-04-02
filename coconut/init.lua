@@ -32,7 +32,7 @@ sceneManager = require("coconut.sceneManager")
 display = require("coconut.display")
 require("coconut.stAPI")
 require 'coconut.engineLibs.externCPP'
-g3d = require("g3d.init")
+widgets = require 'coconut.widgets'
 physics = require("coconut.physics")
 transition = require('coconut.transition')
 sound = require("coconut.sound")
