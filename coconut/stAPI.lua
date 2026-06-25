@@ -109,10 +109,23 @@ function onKeyReleased(fun)
 	return self
 end
 
+function onTextInput(fun)
+	local self = addToStack(fun,"textInput")
+	return self
+end
+
 function love.keypressed(key, scancode, isRepeat)
 	for k, v in pairs(sceneManager.currentScene.stack) do
 		if v and v.type == "keyboard" and canStart then
 			v.fun(key, scancode, isRepeat)
+		end
+	end
+end
+
+function love.textinput(t)
+	for k, v in pairs(sceneManager.currentScene.stack) do
+		if v and v.type == "textInput" and canStart then
+			v.fun(t)
 		end
 	end
 end
@@ -169,6 +182,7 @@ function love.mousereleased(x, y, button)
 end
 
 function love.mousemoved(x, y, dx, dy, istouch)
+	mouse.x,mouse.y = getMousePos()
 	for k, v in pairs(sceneManager.currentScene.stack) do
 		if v and v.type == "mouseM" then
 			v.fun(x, y, dx, dy, istouch)
@@ -180,6 +194,48 @@ function love.wheelmoved(x, y)
 	for k, v in pairs(sceneManager.currentScene.stack) do
 		if v and v.type == "mouseWM" then
 			v.fun(x, y)
+		end
+	end
+end
+
+----------------------------------------------------------------
+-- TOUCHES
+----------------------------------------------------------------
+function onTouchpressed(fun)
+	local self = addToStack(fun,'tp')
+	return self
+end
+
+function onTouchreleased(fun)
+	local self = addToStack(fun,'tr')
+	return self
+end
+
+function onTouchmoved(fun)
+	local self = addToStack(fun,'tm')
+	return self
+end
+
+function love.touchpressed(id, x, y, dx, dy, pressure)
+	for i=1,#stack do
+		if stack[i].type == 'tp' then
+			stack[i].fun(id, x, y, dx, dy, pressure)
+		end
+	end
+end
+
+function love.touchreleased(id, x, y, dx, dy, pressure)
+	for i=1,#stack do
+		if stack[i].type == 'tr' then
+			stack[i].fun(id, x, y, dx, dy, pressure)
+		end
+	end
+end
+
+function love.touchmoved(id, x, y, dx, dy, pressure)
+	for i=1,#stack do
+		if stack[i].type == 'tm' then
+			stack[i].fun(id, x, y, dx, dy, pressure)
 		end
 	end
 end

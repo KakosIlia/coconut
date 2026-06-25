@@ -1,5 +1,6 @@
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 coconut = {
-	_VERSION = "coconut alpha 0.0.1",
+	_VERSION = "coconut alpha 0.0.2",
 	_DESCRIPTION = "Simple and easy game engine for Love2d",
 	_URL = "coming soon...",
 	_LICENSE = [[
@@ -31,6 +32,8 @@ render = require("coconut.render")
 sceneManager = require("coconut.sceneManager")
 display = require("coconut.display")
 require("coconut.stAPI")
+require('coconut.3d.init')
+animations = require 'coconut.animations'
 require 'coconut.engineLibs.externCPP'
 widgets = require 'coconut.widgets'
 physics = require("coconut.physics")

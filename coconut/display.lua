@@ -26,6 +26,8 @@ m.setBackgroundColor = function(...)
 	end
 end
 
+m.debugColliders = false
+
 local OBJECT = {}
 local illegal = { x = true, y = true }
 OBJECT.__index = OBJECT
@@ -105,6 +107,7 @@ function OBJECT:update()
 end
 
 function OBJECT:insert(obj)
+	if self.type == 'node' then
 	for i = #sceneManager.currentScene.data, 1, -1 do
 		if sceneManager.currentScene.data[i] == obj then
 			table.remove(sceneManager.currentScene.data, i)
@@ -117,6 +120,9 @@ function OBJECT:insert(obj)
 	table.insert(self.children, obj)
 
 	return obj
+else
+	return false
+end
 end
 
 ----------------------------------------------------------------
@@ -128,6 +134,27 @@ function OBJECT:addFixture()
 		self.physShape = love.physics.newRectangleShape(self._proxy.width, self._proxy.height)
 	elseif self.type == "circle" then
 		self.physShape = love.physics.newCircleShape(self._proxy.radius)
+	end
+
+	if self.type == 'node' and #self.children >= 1 then
+		local totalWidth,totalHeight = 0,0
+		local largestObject = self.children[1]
+		for k,v in pairs(self.children) do
+			if v:getWidth() >= largestObject:getWidth() then
+				largestObject = v
+			end
+
+			if v:getHeight() >= largestObject:getHeight() then
+				largestObject = v
+			end
+
+		end
+		if #self.children >= 1 then
+		self.physShape = love.physics.newRectangleShape(largestObject:getWidth(),largestObject:getHeight())
+		end
+
+	elseif #self.children <=1 and self.type == 'node' then
+		self.physShape = love.physics.newFixture(self.physBody,love.physics.newRectangleShape(1,1))
 	end
 	self.fixture = love.physics.newFixture(self.physBody, self.physShape)
 	self.fixture:setUserData(self)
@@ -197,12 +224,19 @@ function OBJECT:setY(y)
 end
 
 function OBJECT:setSize(w, h)
+	if self.type ~= 'node' then
 	self._proxy.width = w
 	self._proxy.height = h
 	if self.physBody then
 		self.fixture:destroy()
 		self:addFixture()
 	end
+else
+	for k,v in pairs(self.children) do
+		v._proxy.width = w
+		v._proxy.height = h
+	end
+end
 end
 
 function OBJECT:setWidth(w)
@@ -211,6 +245,13 @@ function OBJECT:setWidth(w)
 		self.fixture:destroy()
 		self:addFixture()
 	end
+
+
+	if self.type == 'node' then
+		for k,v in pairs(self.children) do
+			v._proxy.width = w
+		end
+	end
 end
 
 function OBJECT:setHeight(h)
@@ -218,6 +259,12 @@ function OBJECT:setHeight(h)
 	if self.physBody then
 		self.fixture:destroy()
 		self:addFixture()
+	end
+
+	if self.type == 'node' then
+		for k,v in pairs(self.children) do
+			v._proxy.height = h
+		end
 	end
 end
 
@@ -328,99 +375,87 @@ function OBJECT:sendToShader(data)
 	end
 end
 
-----------------------------------------------------------------
--- MOUSE
-----------------------------------------------------------------
-function OBJECT:getInverseMouse()
-	local mx = love.mouse.getX() - window.cx
-	local my = -(love.mouse.getY() - window.cy)
+function OBJECT:hitTest(screenX, screenY)
+	local mx = screenX - (window.cx or 0)
+	local my = -(screenY - (window.cy or 0))
 
-	local dx = mx - self._proxy.x
-	local dy = my - self._proxy.y
+	local dx = mx - (self._proxy.x or 0)
+	local dy = my - (self._proxy.y or 0)
 
 	local angle = math.rad(self._proxy.angle or 0)
-	local cosA = math.cos(-angle)
-	local sinA = math.sin(-angle)
+	local cosA, sinA = math.cos(-angle), math.sin(-angle)
 
-	local localX = dx * cosA - dy * sinA
-	local localY = dx * sinA + dy * cosA
+	local lx = dx * cosA - dy * sinA
+	local ly = dx * sinA + dy * cosA
 
 	local w, h = 0, 0
 	if self.type == "circle" then
-		w, h = self._proxy.radius * 2, self._proxy.radius * 2
+		local r = self._proxy.radius or 0
+		w, h = r * 2, r * 2
+		local finalX = lx - (w / 2 * (self.anchorX or 0))
+		local finalY = ly - (h / 2 * (self.anchorY or 0))
+		return (finalX * finalX + finalY * finalY) <= (r * r), finalX, finalY
 	elseif self.type == "text" then
-		w = self.font:getWidth(self.text)
-		h = self.font:getHeight(self.text)
+		w, h = self.font:getWidth(self.text), self.font:getHeight(self.text)
 	else
 		w, h = self._proxy.width or 0, self._proxy.height or 0
 	end
 
-	local finalX = localX - (w / 2 * (self.anchorX or 0))
-	local finalY = localY - (h / 2 * (self.anchorY or 0))
+	local finalX = lx - (w / 2 * (self.anchorX or 0))
+	local finalY = ly - (h / 2 * (self.anchorY or 0))
+	local isHit = math.abs(finalX) < (w / 2) and math.abs(finalY) < (h / 2)
 
-	return finalX, finalY
-end
-function OBJECT:inMouse()
-	local lx, ly = self:getInverseMouse()
-
-	if self.type == "circle" then
-		local radius = self._proxy.radius or 0
-		return (lx * lx + ly * ly) <= (radius * radius)
-	elseif self.type == "text" then
-		if not self.font then
-			return false
-		end
-		local tw = self.font:getWidth(self.text)
-		local th = self.font:getHeight(self.text)
-		return math.abs(lx) < (tw / 2) and math.abs(ly) < (th / 2)
-	else
-		local w = self._proxy.width or 0
-		local h = self._proxy.height or 0
-		return math.abs(lx) < (w / 2) and math.abs(ly) < (h / 2)
-	end
+	return isHit, finalX, finalY
 end
 
 function OBJECT:onTouched(fun)
-	local rt = { phase = "", x = 0, y = 0, lx = 0, ly = 0 }
+	local rt = { phase = "", x = 0, y = 0, lx = 0, ly = 0, target = self }
+	self._activeInputs = {}
 
-	self.press = onMousePressed(function(x, y, b)
-		if self:inMouse() then
-			local lx, ly = self:getInverseMouse()
-			rt.phase = "began"
+	local function processEvent(id, phase, x, y, dx, dy, button)
+		local isHit, lx, ly = self:hitTest(x, y)
+
+		if phase == "began" and isHit then
+			self._activeInputs[id] = true
+		end
+
+		if self._activeInputs[id] then
+			rt.phase = phase
 			rt.x, rt.y = x, y
 			rt.lx, rt.ly = lx, ly
-			rt.button = b
-			rt.target = self
+			rt.dx, rt.dy = dx or 0, dy or 0
+			rt.id = id
+			rt.button = button
 			fun(rt)
-			self.focused = true
+
+			if phase == "ended" then
+				self._activeInputs[id] = nil
+			end
 		end
+	end
+
+	self.tp = onTouchpressed(function(id, x, y)
+		processEvent(id, "began", x, y)
+	end)
+	self.tm = onTouchmoved(function(id, x, y, dx, dy)
+		processEvent(id, "moved", x, y, dx, dy)
+	end)
+	self.tr = onTouchreleased(function(id, x, y)
+		processEvent(id, "ended", x, y)
 	end)
 
-	self.moved = onMouseMoved(function(x, y, dx, dy)
-		if self.focused or self:inMouse() then
-			local lx, ly = self:getInverseMouse()
-			rt.phase = "moved"
-			rt.x, rt.y = x, y
-			rt.lx, rt.ly = lx, ly
-			rt.dx, rt.dy = dx, dy
-			rt.target = self
-			fun(rt)
-		end
-	end)
-
-	self.released = onMouseReleased(function(x, y, b)
-		if self.focused then
-			local lx, ly = self:getInverseMouse()
-			rt.phase = "ended"
-			rt.x, rt.y = x, y
-			rt.lx, rt.ly = lx, ly
-			rt.button = b
-			fun(rt)
-			self.focused = false
-		end
-	end)
+	if onMousePressed then
+		self.mp = onMousePressed(function(x, y, b)
+			processEvent("mouse", "began", x, y, 0, 0, b)
+		end)
+		self.mm = onMouseMoved(function(x, y, dx, dy)
+			processEvent("mouse", "moved", x, y, dx, dy)
+		end)
+		self.mr = onMouseReleased(function(x, y, b)
+			processEvent("mouse", "ended", x, y, 0, 0, b)
+		end)
+	end
 end
-
 ----------------------------------------------------------------
 -- NEW_OBJ
 ----------------------------------------------------------------
@@ -440,6 +475,9 @@ local newObj = function(t)
 		visible = true,
 		anchorX = 0,
 		anchorY = 0,
+		mirroredX = false,
+		mirroredY = false,
+		angleAnchor = 0,
 		layer = 1,
 		_proxy = {
 			angle = 0,
@@ -493,7 +531,7 @@ m.circle = function(x, y, r)
 	return OBJECT:addToStack(self)
 end
 
-m.image = function(image, x, y, w, h,type )
+m.image = function(image, x, y, w, h, type)
 	local self = {
 		_proxy = {
 			x = x,
@@ -508,7 +546,7 @@ m.image = function(image, x, y, w, h,type )
 		self.image = assets.get(image)
 	else
 		self.image = love.graphics.newImage(image)
-		self.image:setFilter(type or 'linear',type or 'linear')
+		self.image:setFilter(type or "linear", type or "linear")
 		assets.add(self.image, "image", image)
 	end
 	self = newObj(self)
@@ -533,9 +571,24 @@ m.imageSheet = function(image, tabPos, x, y, w, h, type)
 		assets.add(self.image, "image", image)
 	end
 	self.image:setFilter(type or "linear", type or "linear")
+	self.tabPos = tabPos
 	self.quad = love.graphics.newQuad(tabPos.x, tabPos.y, tabPos.width, tabPos.height, self.image:getDimensions())
+	function self:retakeSprite(tabPos)
+		self.quad = love.graphics.newQuad(tabPos.x, tabPos.y, tabPos.width, tabPos.height, self.image:getDimensions())
+	end
 	self = newObj(self)
 	return OBJECT:addToStack(self)
+end
+
+m.identSheet = function(xml)
+	local file = io.open(xml,"r")
+	if file then
+		local data = file:read("a*")
+		file:close()
+		local xml = require 'coconut.xml'
+		local imagesHandler = xml.parseString(data)
+		return imagesHandler.sprites
+	end
 end
 
 m.text = function(text, x, y, font, size)
@@ -622,6 +675,69 @@ m.line = function(...)
 	end
 	self.retakePoints()
 	return OBJECT:addToStack(self)
+end
+
+m.node = function(...)
+	local self = {
+		type = "node",
+		_proxy = {
+			angle = 0,
+			width = 0,
+			height = 0,
+			x = 0,
+			y = 0,
+			xScale = 1,
+			yScale = 1
+		},
+	}
+	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
+--[[importNode = function(path)
+	local file = io.open(path,'r')
+	local resultNode = m.node()
+	if file then
+		local data = file:read("a*")
+		local t = json.decode(data)
+
+		for k,v in pairs(t) do
+			local self = m.rect(v.x,v.y,v.width,v.height)
+			resultNode[k] = self
+			resultNode:insert(self)
+		end
+	end
+	return resultNode
+end]]
+
+m.objModel = function(path)
+	local self = {
+		_proxy = {
+			x = 0,
+			y = 0,
+			width = 0,
+			height = 0
+		},
+		x = 0,
+		y = 0,
+		z = 0,
+		type = 'objModel'
+	}
+	local file = io.open(path,'r')
+	if file then
+		local data = file:read("a*")
+		local parsedData = objParser.parse(data)
+		self.parsedData = parsedData
+	end
+	self = newObj(self)
+	return OBJECT:addToStack(self)
+end
+
+
+m.clearAll = function()
+	for k, v in pairs(sceneManager.currentScene.data) do
+		v:remove()
+	end
 end
 
 return m

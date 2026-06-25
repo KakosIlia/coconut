@@ -1,3 +1,4 @@
+-- Copyright (c) 2026 IliaKakos2000. Licensed under the MIT License.
 local m = {}
 local assets = {}
 m.add = function(asset, type, name)

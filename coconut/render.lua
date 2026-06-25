@@ -29,7 +29,7 @@ local function drawObject(v)
 		love.graphics.translate(v._proxy.x, -v._proxy.y)
 	end
 	
-	love.graphics.rotate(math.rad(v._proxy.angle or 0))
+	love.graphics.rotate(math.rad(v._proxy.angle or 0) + math.rad(v.angleAnchor))
 
 	if v._proxy.shader then
 		for name, shKey in pairs(v._proxy.shaderData) do
@@ -47,6 +47,22 @@ local function drawObject(v)
 	local localX = -localWidth / 2
 	local localY = -localHeight / 2
 
+	local sx = v.mirroredX and -1 or 1
+	local sy = v.mirroredY and -1 or 1
+	if sx ~= 1 or sy ~= 1 then
+		love.graphics.scale(sx, sy)
+	end
+
+	if v.type == 'node' then
+		love.graphics.scale(v.xScale,v.yScale)
+	end
+
+	if display.debugColliders then
+		if v.physBody then
+			love.graphics.rectangle("line",v.physBody:getX(),v.physBody:getY(),v.physShape:getWidth(),v.physShape:getHeight())
+		end
+	end
+	
 	if v.type == "rect" then
 		love.graphics.rectangle("fill", localX, localY, v._proxy.width, v._proxy.height)
 		if v.strokeWidth and v.strokeColor and v.strokeWidth ~= 0 then

@@ -1,0 +1,1 @@
+objParser = require 'coconut.3d.objParser'
